@@ -66,7 +66,7 @@ function setMask(image) {
 function renderComposition() {
   if (!maskImage) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
-  if (photoImage && maskHole) {
+  if (!cameraStream && photoImage && maskHole) {
     const { x, y, width, height } = maskHole;
     const scale = Math.max(width / photoImage.naturalWidth, height / photoImage.naturalHeight);
     const photoWidth = photoImage.naturalWidth * scale;
@@ -143,7 +143,7 @@ cameraStart.addEventListener('click', async () => {
     captureContext.translate(capture.width, 0);
     captureContext.scale(-1, 1);
     captureContext.drawImage(cameraVideo, 0, 0, capture.width, capture.height);
-    setPhoto(capture.toDataURL('image/png'), 'selfie.png');
+    await setPhoto(capture.toDataURL('image/png'), 'selfie.png');
     stopCamera();
     return;
   }
@@ -158,6 +158,7 @@ cameraStart.addEventListener('click', async () => {
     await cameraVideo.play();
     alignCameraPreview();
     cameraVideo.hidden = false;
+    renderComposition();
     cameraStart.textContent = 'Capturar selfie';
   } catch {
     stopCamera();
