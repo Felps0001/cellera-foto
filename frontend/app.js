@@ -1,5 +1,6 @@
 const canvas = document.querySelector('#composition');
 const context = canvas.getContext('2d', { willReadFrequently: true });
+const canvasWrap = document.querySelector('#canvas-wrap');
 const photoFile = document.querySelector('#photo-file');
 const uploadZone = document.querySelector('#upload-zone');
 const uploadLabel = document.querySelector('#upload-label');
@@ -11,7 +12,6 @@ let maskImage = null;
 let photoImage = null;
 let photoIsMirrored = false;
 let cameraStream = null;
-let cameraFrame = 0;
 let maskHole = null;
 
 function findTransparentOpening(image) {
@@ -66,34 +66,23 @@ function setMask(image) {
 function renderComposition() {
   if (!maskImage) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
-  const liveCamera = Boolean(cameraStream && cameraVideo.videoWidth);
-  const image = cameraStream ? cameraVideo : photoImage;
-  const imageWidth = cameraStream ? cameraVideo.videoWidth : photoImage?.naturalWidth;
-  const imageHeight = cameraStream ? cameraVideo.videoHeight : photoImage?.naturalHeight;
-  if (image && imageWidth && imageHeight && maskHole) {
+  if (photoImage && maskHole) {
     const { x, y, width, height } = maskHole;
-    const scale = Math.max(width / imageWidth, height / imageHeight);
-    const photoWidth = imageWidth * scale;
-    const photoHeight = imageHeight * scale;
+    const scale = Math.max(width / photoImage.naturalWidth, height / photoImage.naturalHeight);
+    const photoWidth = photoImage.naturalWidth * scale;
+    const photoHeight = photoImage.naturalHeight * scale;
     context.save();
-    if (liveCamera || photoIsMirrored) {
+    if (photoIsMirrored) {
       context.translate(canvas.width, 0);
       context.scale(-1, 1);
     }
-    context.drawImage(image, x + (width - photoWidth) / 2, y + (height - photoHeight) / 2, photoWidth, photoHeight);
+    context.drawImage(photoImage, x + (width - photoWidth) / 2, y + (height - photoHeight) / 2, photoWidth, photoHeight);
     context.restore();
   }
   context.drawImage(maskImage, 0, 0);
 
   uploadLabel.textContent = photoImage && maskHole ? 'Baixar imagem' : 'Escolher imagem';
 }
-function renderCameraFrame() {
-  if (!cameraStream) return;
-  renderComposition();
-  cameraFrame = requestAnimationFrame(renderCameraFrame);
-}
-
-
 function loadImage(source) {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -132,11 +121,17 @@ function downloadComposition() {
   anchor.click();
 }
 
-uploadZone.addEventListener('click', (event) => {
-  if (!photoImage || !maskHole) return;
-  event.preventDefault();
-  downloadComposition();
-});
+function alignCameraPreview() {
+  if (!maskHole) return;
+  const wrapBounds = canvasWrap.getBoundingClientRect();
+  const canvasBounds = canvas.getBoundingClientRect();
+  const scaleX = canvasBounds.width / canvas.width;
+  const scaleY = canvasBounds.height / canvas.height;
+  cameraVideo.style.left = `${canvasBounds.left - wrapBounds.left + maskHole.x * scaleX}px`;
+  cameraVideo.style.top = `${canvasBounds.top - wrapBounds.top + maskHole.y * scaleY}px`;
+  cameraVideo.style.width = `${maskHole.width * scaleX}px`;
+  cameraVideo.style.height = `${maskHole.height * scaleY}px`;
+}
 
 cameraStart.addEventListener('click', async () => {
   if (cameraStream) {
@@ -161,8 +156,9 @@ cameraStart.addEventListener('click', async () => {
     cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
     cameraVideo.srcObject = cameraStream;
     await cameraVideo.play();
+    alignCameraPreview();
+    cameraVideo.hidden = false;
     cameraStart.textContent = 'Capturar selfie';
-    renderCameraFrame();
   } catch {
     stopCamera();
     formMessage.textContent = 'Permita o acesso à câmera para fazer uma selfie.';
@@ -171,17 +167,20 @@ cameraStart.addEventListener('click', async () => {
 });
 
 function stopCamera() {
-  if (cameraFrame) cancelAnimationFrame(cameraFrame);
-  cameraFrame = 0;
   cameraStream?.getTracks().forEach((track) => track.stop());
   cameraStream = null;
   cameraVideo.srcObject = null;
+  cameraVideo.hidden = true;
   cameraStart.textContent = 'Tirar selfie';
   renderComposition();
 }
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && cameraStream) stopCamera();
+});
+
+window.addEventListener('resize', () => {
+  if (cameraStream) alignCameraPreview();
 });
 
 window.addEventListener('beforeunload', stopCamera);
