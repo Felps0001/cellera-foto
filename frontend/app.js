@@ -58,7 +58,7 @@ function setMask(image) {
     formMessage.textContent = 'Não encontrei uma área transparente central na moldura.';
     formMessage.style.color = '#b54a34';
   } else {
-    formMessage.textContent = 'Máscara pronta. Escolha uma foto para continuar.';
+    formMessage.textContent = '';
     formMessage.style.color = '';
   }
 }
@@ -97,7 +97,7 @@ async function setPhoto(source, label, mirrored = false) {
     photoImage = await loadImage(source);
     photoIsMirrored = mirrored;
     renderComposition();
-    formMessage.textContent = maskHole ? 'Foto pronta. Baixe sua imagem pelo botão no rodapé.' : 'A moldura precisa ter uma área transparente central.';
+    formMessage.textContent = '';
     formMessage.style.color = '';
   } catch {
     formMessage.textContent = 'Não foi possível abrir essa imagem. Tente outro arquivo.';
@@ -115,15 +115,40 @@ photoFile.addEventListener('change', () => {
 
 function downloadComposition() {
   if (!photoImage || !maskHole) return;
-  const anchor = document.createElement('a');
-  anchor.download = 'celera-farma-semana-qualidade.png';
-  anchor.href = canvas.toDataURL('image/png');
-  anchor.style.position = 'fixed';
-  anchor.style.left = '-10000px';
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  formMessage.textContent = 'Download da imagem iniciado.';
+  const filename = 'celera-farma-semana-qualidade.png';
+
+  try {
+    const dataUrl = canvas.toDataURL('image/png');
+    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const file = new File([bytes], filename, { type: 'image/png' });
+
+    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+      formMessage.textContent = 'No menu que abrir, escolha Salvar imagem.';
+      navigator.share({ files: [file], title: 'Minha foto personalizada' }).then(() => {
+        formMessage.textContent = 'Imagem compartilhada.';
+      }).catch((error) => {
+        formMessage.textContent = error.name === 'AbortError' ? '' : 'Não foi possível abrir o compartilhamento. Tente novamente.';
+      });
+      return;
+    }
+
+    const downloadUrl = URL.createObjectURL(file);
+    const anchor = document.createElement('a');
+    anchor.download = filename;
+    anchor.href = downloadUrl;
+    anchor.style.position = 'fixed';
+    anchor.style.left = '-10000px';
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
+    formMessage.textContent = 'Download da imagem iniciado.';
+  } catch {
+    formMessage.textContent = 'Não foi possível preparar a imagem. Tente novamente.';
+  }
 }
 
 photoAction.addEventListener('click', () => {
