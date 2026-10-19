@@ -2,7 +2,7 @@ const canvas = document.querySelector('#composition');
 const context = canvas.getContext('2d', { willReadFrequently: true });
 const canvasWrap = document.querySelector('#canvas-wrap');
 const photoFile = document.querySelector('#photo-file');
-const uploadZone = document.querySelector('#upload-zone');
+const photoAction = document.querySelector('#photo-action');
 const uploadLabel = document.querySelector('#upload-label');
 const formMessage = document.querySelector('#form-message');
 const cameraStart = document.querySelector('#camera-start');
@@ -118,8 +118,21 @@ function downloadComposition() {
   const anchor = document.createElement('a');
   anchor.download = 'celera-farma-semana-qualidade.png';
   anchor.href = canvas.toDataURL('image/png');
+  anchor.style.position = 'fixed';
+  anchor.style.left = '-10000px';
+  document.body.append(anchor);
   anchor.click();
+  anchor.remove();
+  formMessage.textContent = 'Download da imagem iniciado.';
 }
+
+photoAction.addEventListener('click', () => {
+  if (photoImage && maskHole) {
+    downloadComposition();
+    return;
+  }
+  photoFile.click();
+});
 
 function alignCameraPreview() {
   if (!maskHole) return;

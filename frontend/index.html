@@ -18,12 +18,12 @@
         <canvas id="composition" aria-label="Moldura personalizada"></canvas>
       </div>
 
+      <input id="photo-file" name="photo" type="file" accept="image/*" hidden>
       <div class="camera-controls" aria-label="Controles da foto">
         <button class="action-button" id="camera-start" type="button">Tirar selfie</button>
-        <label class="action-button" for="photo-file" id="upload-zone">
-          <input id="photo-file" name="photo" type="file" accept="image/*" hidden>
+        <button class="action-button" id="photo-action" type="button">
           <span id="upload-label">Escolher imagem</span>
-        </label>
+        </button>
       </div>
 
       <p class="visually-hidden" id="form-message" role="status" aria-live="polite"></p>
