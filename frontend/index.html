@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#184b78">
+    <title>Semana da Qualidade 2026 | Sua lembrança</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="screen">
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="composition" aria-label="Moldura personalizada"></canvas>
+      </div>
+
+      <div class="camera-view" id="camera-view" hidden>
+        <video id="camera-video" autoplay playsinline muted></video>
+        <p class="visually-hidden" role="status">Posicione seu rosto e toque em Capturar selfie.</p>
+      </div>
+
+      <div class="camera-controls" aria-label="Controles da foto">
+        <button class="action-button" id="camera-start" type="button">Tirar selfie</button>
+        <label class="action-button" for="photo-file" id="upload-zone">
+          <input id="photo-file" name="photo" type="file" accept="image/*" hidden>
+          <span id="upload-label">Escolher imagem</span>
+        </label>
+      </div>
+
+      <p class="visually-hidden" id="form-message" role="status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>
