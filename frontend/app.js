@@ -5,13 +5,13 @@ const uploadZone = document.querySelector('#upload-zone');
 const uploadLabel = document.querySelector('#upload-label');
 const formMessage = document.querySelector('#form-message');
 const cameraStart = document.querySelector('#camera-start');
-const cameraView = document.querySelector('#camera-view');
 const cameraVideo = document.querySelector('#camera-video');
 
 let maskImage = null;
 let photoImage = null;
 let photoIsMirrored = false;
 let cameraStream = null;
+let cameraFrame = 0;
 let maskHole = null;
 
 function findTransparentOpening(image) {
@@ -66,23 +66,33 @@ function setMask(image) {
 function renderComposition() {
   if (!maskImage) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
-  if (photoImage && maskHole) {
+  const liveCamera = Boolean(cameraStream && cameraVideo.videoWidth);
+  const image = cameraStream ? cameraVideo : photoImage;
+  const imageWidth = cameraStream ? cameraVideo.videoWidth : photoImage?.naturalWidth;
+  const imageHeight = cameraStream ? cameraVideo.videoHeight : photoImage?.naturalHeight;
+  if (image && imageWidth && imageHeight && maskHole) {
     const { x, y, width, height } = maskHole;
-    const scale = Math.max(width / photoImage.naturalWidth, height / photoImage.naturalHeight);
-    const photoWidth = photoImage.naturalWidth * scale;
-    const photoHeight = photoImage.naturalHeight * scale;
+    const scale = Math.max(width / imageWidth, height / imageHeight);
+    const photoWidth = imageWidth * scale;
+    const photoHeight = imageHeight * scale;
     context.save();
-    if (photoIsMirrored) {
+    if (liveCamera || photoIsMirrored) {
       context.translate(canvas.width, 0);
       context.scale(-1, 1);
     }
-    context.drawImage(photoImage, x + (width - photoWidth) / 2, y + (height - photoHeight) / 2, photoWidth, photoHeight);
+    context.drawImage(image, x + (width - photoWidth) / 2, y + (height - photoHeight) / 2, photoWidth, photoHeight);
     context.restore();
   }
   context.drawImage(maskImage, 0, 0);
 
   uploadLabel.textContent = photoImage && maskHole ? 'Baixar imagem' : 'Escolher imagem';
 }
+function renderCameraFrame() {
+  if (!cameraStream) return;
+  renderComposition();
+  cameraFrame = requestAnimationFrame(renderCameraFrame);
+}
+
 
 function loadImage(source) {
   return new Promise((resolve, reject) => {
@@ -150,20 +160,24 @@ cameraStart.addEventListener('click', async () => {
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
     cameraVideo.srcObject = cameraStream;
-    cameraView.hidden = false;
+    await cameraVideo.play();
     cameraStart.textContent = 'Capturar selfie';
+    renderCameraFrame();
   } catch {
+    stopCamera();
     formMessage.textContent = 'Permita o acesso à câmera para fazer uma selfie.';
     formMessage.style.color = '#b54a34';
   }
 });
 
 function stopCamera() {
+  if (cameraFrame) cancelAnimationFrame(cameraFrame);
+  cameraFrame = 0;
   cameraStream?.getTracks().forEach((track) => track.stop());
   cameraStream = null;
   cameraVideo.srcObject = null;
-  cameraView.hidden = true;
   cameraStart.textContent = 'Tirar selfie';
+  renderComposition();
 }
 
 document.addEventListener('keydown', (event) => {
