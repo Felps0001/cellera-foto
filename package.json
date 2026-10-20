@@ -1,8 +1,11 @@
 {
-  "name": "foto-celera",
-  "version": "1.0.0",
+  "name": "cellera-foto",
   "private": true,
+  "workspaces": ["frontend"],
   "scripts": {
-    "start": "node server.js"
+    "dev": "npm run dev --workspace frontend",
+    "start": "npm run dev",
+    "build": "npm run build --workspace frontend",
+    "preview": "npm run preview --workspace frontend"
   }
 }
