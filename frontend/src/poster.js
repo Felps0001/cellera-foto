@@ -24,16 +24,18 @@ export async function prepareMask(url) {
 export function drawPoster(canvas, model) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const { photo, overlay, zoom, offset } = model;
+  const { photo, overlay, zoom, offset, mirrored = false } = model;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (photo) {
-    const scale = Math.max(area.w / photo.width, area.h / photo.height) * zoom;
-    const w = photo.width * scale, h = photo.height * scale;
+    const photoWidth = photo.videoWidth || photo.width, photoHeight = photo.videoHeight || photo.height;
+    const scale = Math.max(area.w / photoWidth, area.h / photoHeight) * zoom;
+    const w = photoWidth * scale, h = photoHeight * scale;
     const limitX = (w - area.w) / 2, limitY = (h - area.h) / 2;
     offset.x = Math.max(-limitX, Math.min(limitX, offset.x));
     offset.y = Math.max(-limitY, Math.min(limitY, offset.y));
     ctx.save(); ctx.beginPath(); ctx.roundRect(area.x, area.y, area.w, area.h, area.r); ctx.clip();
+    if (mirrored) { ctx.translate(area.x * 2 + area.w, 0); ctx.scale(-1, 1); }
     ctx.drawImage(photo, area.x + (area.w - w) / 2 + offset.x, area.y + (area.h - h) / 2 + offset.y, w, h);
     ctx.restore();
   }

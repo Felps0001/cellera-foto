@@ -32,7 +32,7 @@ O resultado está em `frontend/dist/`. Hospede essa pasta em HTTPS. No Windows, 
 
 A máscara aparece inteira, centralizada e sem deformação, no espaço disponível acima dos controles. O tamanho se ajusta à largura e à altura da tela, incluindo quando o zoom aparece. Telas com proporção diferente da arte podem ter faixas azuis ao redor. Os controles ficam fora da imagem e respeitam a área segura do aparelho. O PNG baixado permanece completo em 1080 × 1920.
 
-As fotos são processadas apenas no navegador. O upload aceita imagens de até 12 MB. A câmera frontal gera uma selfie espelhada e é desligada ao fechar o diálogo ou desmontar a página. A região branca conectada do centro da máscara é removida apenas em memória para preservar os blocos decorativos sobre a foto.
+As fotos são processadas apenas no navegador. O upload aceita imagens de até 12 MB. A câmera frontal gera uma selfie espelhada e aparece ao vivo dentro da moldura e é desligada ao capturar, cancelar ou sair da página. A região branca conectada do centro da máscara é removida apenas em memória para preservar os blocos decorativos sobre a foto.
 
 ## Conferência no celular
 

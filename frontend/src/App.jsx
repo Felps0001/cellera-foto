@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { prepareMask, drawPoster } from './poster.js';
 
 export default function App() {
-  const canvas = useRef(null), fileInput = useRef(null), dialog = useRef(null), video = useRef(null);
+  const canvas = useRef(null), fileInput = useRef(null), video = useRef(null);
+  const cameraRequest = useRef(0), cameraFrame = useRef(null);
+  const [cameraActive, setCameraActive] = useState(false);
   const model = useRef({ photo: null, overlay: null, zoom: 1, offset: { x: 0, y: 0 } });
   const stream = useRef(null), drag = useRef(null), mounted = useRef(false), photoRequest = useRef(0);
   const pointers = useRef(new Map());
@@ -12,8 +14,11 @@ export default function App() {
   const [message, setMessage] = useState('Carregando a moldura…');
   const render = () => drawPoster(canvas.current, model.current);
   function stopCamera() {
+    cameraRequest.current++;
+    cancelAnimationFrame(cameraFrame.current); cameraFrame.current = null;
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
     if (video.current) video.current.srcObject = null;
+    if (mounted.current) { setCameraActive(false); setOpeningCamera(false); render(); }
   }
   useEffect(() => {
     mounted.current = true;
@@ -22,7 +27,7 @@ export default function App() {
       model.current.overlay = overlay; render(); setReady(true);
       setMessage('Escolha uma foto ou tire uma selfie para começar.');
     }).catch(() => { if (mounted.current) setMessage('Não foi possível carregar a moldura. Recarregue a página.'); });
-    const onHide = () => { stopCamera(); dialog.current?.close(); };
+    const onHide = () => { stopCamera(); };
     window.addEventListener('pagehide', onHide);
     return () => { mounted.current = false; photoRequest.current++; stopCamera(); window.removeEventListener('pagehide', onHide); };
   }, []);
@@ -47,21 +52,34 @@ export default function App() {
   async function openCamera() {
     if (!navigator.mediaDevices?.getUserMedia) return setMessage('Para usar a câmera, abra em HTTPS ou localhost. Você também pode escolher uma imagem.');
     setOpeningCamera(true);
+    const request = ++cameraRequest.current;
+    pointers.current.clear(); drag.current = null; setAdjustmentsOpen(false);
     try {
       const media = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1920 } }, audio: false });
-      if (!mounted.current) { media.getTracks().forEach(track => track.stop()); return; }
-      stream.current = media; video.current.srcObject = media; dialog.current.showModal(); await video.current.play();
+      if (!mounted.current || request !== cameraRequest.current) { media.getTracks().forEach(track => track.stop()); return; }
+      stream.current = media; video.current.srcObject = media; await video.current.play();
+      if (!mounted.current || request !== cameraRequest.current) return;
+      setCameraActive(true); setMessage('Enquadre seu rosto na moldura e toque em Capturar foto.');
+      const preview = () => {
+        if (request !== cameraRequest.current || !mounted.current) return;
+        if (video.current.readyState >= 2) drawPoster(canvas.current, { photo: video.current, overlay: model.current.overlay, zoom: 1, offset: { x: 0, y: 0 }, mirrored: true });
+        cameraFrame.current = requestAnimationFrame(preview);
+      };
+      preview();
     } catch {
-      stopCamera(); dialog.current?.close();
+      if (request !== cameraRequest.current) return;
+      stopCamera();
       if (mounted.current) setMessage('Não foi possível acessar a câmera. Confira a permissão ou escolha uma imagem.');
-    } finally { if (mounted.current) setOpeningCamera(false); }
+    } finally { if (mounted.current && request === cameraRequest.current) setOpeningCamera(false); }
   }
   function capturePhoto() {
     const v = video.current; if (!v.videoWidth) return;
     const capture = document.createElement('canvas'); capture.width = v.videoWidth; capture.height = v.videoHeight;
     const ctx = capture.getContext('2d'); ctx.translate(capture.width, 0); ctx.scale(-1, 1); ctx.drawImage(v, 0, 0);
-    capture.toBlob(blob => { if (mounted.current) { if (blob) loadPhoto(blob); else setMessage('Não foi possível capturar. Tente novamente.'); } }, 'image/png');
-    dialog.current.close(); stopCamera();
+    photoRequest.current++;
+    Object.assign(model.current, { photo: capture, zoom: 1, offset: { x: 0, y: 0 } });
+    setZoom(1); setHasPhoto(true); setAdjustmentsOpen(false);
+    stopCamera(); setMessage('Arraste para posicionar. Use dois dedos para ampliar.');
   }
   function download() {
     render(); canvas.current.toBlob(blob => {
@@ -83,7 +101,7 @@ export default function App() {
     };
   }
   function pointerDown(event) {
-    if (!hasPhoto) return;
+    if (!hasPhoto || cameraActive || openingCamera) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -117,11 +135,11 @@ export default function App() {
         <canvas ref={canvas} id="poster" width="1080" height="1920" aria-label="Prévia do pôster com sua foto"
           onPointerDown={pointerDown}
           onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onLostPointerCapture={pointerEnd} />
-        {!hasPhoto && <span id="placeholder">Sua foto entra aqui</span>}
+        {!hasPhoto && !cameraActive && <span id="placeholder">Sua foto entra aqui</span>}
         </div>
       </div>
       <div className="controls">
-        {hasPhoto && <>
+        {hasPhoto && !cameraActive && !openingCamera && <>
           <button className="adjustments-toggle secondary" aria-expanded={adjustmentsOpen} aria-controls="photo-adjustments" onClick={() => { pointers.current.clear(); drag.current = null; setAdjustmentsOpen(open => !open); }}>
             {adjustmentsOpen ? 'Recolher ajustes ▴' : 'Ajustar zoom ▾'}
           </button>
@@ -132,17 +150,18 @@ export default function App() {
         </div></>}
         <p id="status" role="status" aria-live="polite">{message}</p>
         <div className="actions">
+          {cameraActive || openingCamera ? <>
+            <button disabled={!cameraActive} onClick={capturePhoto}>{openingCamera ? 'Abrindo câmera…' : 'Capturar foto'}</button>
+            <button className="secondary" onClick={() => { stopCamera(); setMessage(hasPhoto ? 'Arraste para posicionar. Use dois dedos para ampliar.' : 'Escolha uma foto ou tire uma selfie para começar.'); }}>Cancelar</button>
+          </> : <>
           <button disabled={!ready || openingCamera} onClick={openCamera}>{openingCamera ? 'Abrindo câmera…' : 'Tirar selfie'}</button>
           <button className="secondary" disabled={!ready} onClick={() => fileInput.current.click()}>{hasPhoto ? 'Trocar imagem' : 'Escolher imagem'}</button>
           {hasPhoto && <button id="downloadButton" onClick={download}>Baixar pôster PNG</button>}
+          </>}
         </div>
       </div>
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={selectPhoto} />
     </section></main>
-    <dialog ref={dialog} onClose={stopCamera} onCancel={stopCamera}>
-      <h2>Seu melhor sorriso</h2><video ref={video} autoPlay muted playsInline />
-      <p>A selfie será espelhada como nesta prévia.</p>
-      <div className="actions"><button onClick={capturePhoto}>Capturar foto</button><button className="secondary" onClick={() => { dialog.current.close(); stopCamera(); }}>Cancelar</button></div>
-    </dialog>
+    <video ref={video} autoPlay muted playsInline hidden aria-hidden="true" />
   </>;
 }
